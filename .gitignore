@@ -1,0 +1,12 @@
+# Visual Studio Files
+.vs/
+
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# The packages folder can be ignored because of Package Restore
+packages/
+
+# SonarQube
+.sonarqube/
