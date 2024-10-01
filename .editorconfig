@@ -130,6 +130,10 @@ dotnet_diagnostic.SA1600.severity = none
 dotnet_diagnostic.SA1633.severity = none
 # Conflicts with IDE0065 default value
 dotnet_diagnostic.SA1200.severity = none
+# Conflicts with IDE0055 default value
+dotnet_diagnostic.SA1000.severity = none
+# Opening square brackets should be spaced correctly (conflicts with collection expressions)
+dotnet_diagnostic.SA1010.severity = none
 
 # Formatting Rules
 # ----------------
