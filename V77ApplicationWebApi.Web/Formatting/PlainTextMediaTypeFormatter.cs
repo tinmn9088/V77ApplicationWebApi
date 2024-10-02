@@ -24,6 +24,19 @@ public class PlainTextMediaTypeFormatter : MediaTypeFormatter
 
     public override bool CanWriteType(Type type) => type == typeof(string) || type == typeof(char) || type == typeof(char[]);
 
+    /// <summary>
+    /// Called during serialization to write an object of the specified type to the specified stream.
+    /// </summary>
+    /// <param name="type">The type of the object to write.</param>
+    /// <param name="value">The object to write.</param>
+    /// <param name="writeStream">The stream to write to.</param>
+    /// <param name="content">The System.Net.Http.HttpContent for the content being written.</param>
+    /// <param name="transportContext">The transport context.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    /// <exception cref="NotSupportedException">
+    /// When <paramref name="value"/> type is neither <see cref="string"/>,
+    /// nor <see cref="char"/>, nor <see cref="char[]"/>.
+    /// </exception>
     public override async Task WriteToStreamAsync(Type type, object value, Stream writeStream, HttpContent content, TransportContext transportContext)
     {
         using StreamWriter streamWriter = new(writeStream);
@@ -33,7 +46,7 @@ public class PlainTextMediaTypeFormatter : MediaTypeFormatter
             string valueString => streamWriter.WriteAsync(valueString),
             char valueChar => streamWriter.WriteAsync(valueChar),
             char[] valueCharArray => streamWriter.WriteAsync(valueCharArray),
-            _ => throw new NotImplementedException(),
+            _ => throw new NotSupportedException(),
         };
 
         await writeTask.ConfigureAwait(false);
