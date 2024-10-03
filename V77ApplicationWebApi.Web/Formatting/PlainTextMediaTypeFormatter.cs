@@ -30,7 +30,7 @@ public class PlainTextMediaTypeFormatter : MediaTypeFormatter
     /// <param name="type">The type of the object to write.</param>
     /// <param name="value">The object to write.</param>
     /// <param name="writeStream">The stream to write to.</param>
-    /// <param name="content">The System.Net.Http.HttpContent for the content being written.</param>
+    /// <param name="content">The <see cref="HttpContent"/> for the content being written.</param>
     /// <param name="transportContext">The transport context.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <exception cref="NotSupportedException">
