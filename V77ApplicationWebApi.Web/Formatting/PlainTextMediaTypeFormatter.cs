@@ -18,7 +18,7 @@ public class PlainTextMediaTypeFormatter : MediaTypeFormatter
     /// </summary>
     public static readonly MediaTypeHeaderValue DefaultMediaType = new("text/plain");
 
-    public PlainTextMediaTypeFormatter() => this.SupportedMediaTypes.Add(DefaultMediaType);
+    public PlainTextMediaTypeFormatter() => SupportedMediaTypes.Add(DefaultMediaType);
 
     public override bool CanReadType(Type type) => false;
 

@@ -89,6 +89,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\IgnoreCloseMemoryStream.cs" />
     <Compile Include="Formatting\PlainTextMediaTypeFormatterTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
