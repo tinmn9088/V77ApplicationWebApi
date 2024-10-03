@@ -10,3 +10,6 @@ packages/
 
 # SonarQube
 .sonarqube/
+
+# Coverlet Code Coverage results (OpenCover format)
+[Cc]overage*.xml
