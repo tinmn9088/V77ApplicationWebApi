@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "V77ApplicationWebApi.Infras
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "V77ApplicationWebApi.Web.UnitTests", "V77ApplicationWebApi.Web.UnitTests\V77ApplicationWebApi.Web.UnitTests.csproj", "{2584F8CF-F871-4BB2-A24E-4BA63CF272FE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "V77ApplicationWebApi.Infrastructure.UnitTests", "V77ApplicationWebApi.Infrastructure.UnitTests\V77ApplicationWebApi.Infrastructure.UnitTests.csproj", "{4DF28982-4D5E-4E52-9C5A-D1B2129EF3FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{2584F8CF-F871-4BB2-A24E-4BA63CF272FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2584F8CF-F871-4BB2-A24E-4BA63CF272FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2584F8CF-F871-4BB2-A24E-4BA63CF272FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4DF28982-4D5E-4E52-9C5A-D1B2129EF3FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4DF28982-4D5E-4E52-9C5A-D1B2129EF3FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4DF28982-4D5E-4E52-9C5A-D1B2129EF3FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4DF28982-4D5E-4E52-9C5A-D1B2129EF3FC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,14 +1,15 @@
-using System.Reflection;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("V77ApplicationWebApi.Web.UnitTests")]
+[assembly: AssemblyTitle("V77ApplicationWebApi.Infrastructure.UnitTests")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("V77ApplicationWebApi.Web.UnitTests")]
+[assembly: AssemblyProduct("V77ApplicationWebApi.Infrastructure.UnitTests")]
 [assembly: AssemblyCopyright("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -19,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("2584f8cf-f871-4bb2-a24e-4ba63cf272fe")]
+[assembly: Guid("4df28982-4d5e-4e52-9c5a-d1b2129ef3fc")]
 
 // Version information for an assembly consists of the following four values:
 //
