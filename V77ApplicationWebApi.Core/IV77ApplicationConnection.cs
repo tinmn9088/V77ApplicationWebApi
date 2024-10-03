@@ -1,0 +1,47 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace V77ApplicationWebApi.Core;
+
+public interface IV77ApplicationConnection : IAsyncDisposable
+{
+    /// <summary>
+    /// Connect to infobase.
+    /// </summary>
+    /// <param name="cancellationToken">The token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+    ValueTask ConnectAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Run ERT specified by <paramref name="ertRelativePath"/>.
+    /// </summary>
+    /// <param name="ertRelativePath">ERT path relative to infobase path.</param>
+    /// <param name="cancellationToken">The token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+    ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Run ERT specified by <paramref name="ertRelativePath"/> with parameters from <paramref name="ertContext"/>.
+    /// </summary>
+    /// <param name="ertContext">Parameters that will be passed to ERT.</param>
+    /// <inheritdoc cref="RunErtAsync(string, CancellationToken)"/>
+    ValueTask RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string>? ertContext, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Run ERT specified by <paramref name="ertRelativePath"/> with parameters from <paramref name="ertContext"/>
+    /// and get result by <paramref name="resultName"/>.
+    /// </summary>
+    /// <param name="resultName">Name by which the result of ERT run can be retrieved.</param>
+    /// <inheritdoc cref="RunErtAsync(string, IReadOnlyDictionary{string, string}?, CancellationToken)"/>
+    ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string>? ertContext, string? resultName, CancellationToken cancellationToken);
+
+    /// <param name="errorMessageName">Name by which the error message of ERT run can be retrieved.</param>
+    /// <exception cref="FailedToRunErtException">
+    /// If an error has occurred while running ERT (value retrieved
+    /// by <paramref name="errorMessageName"/> was not <c>null</c>).
+    /// </exception>
+    /// <inheritdoc cref="RunErtAsync(string, IReadOnlyDictionary{string, string}?, string?, CancellationToken)"/>
+    ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string>? ertContext, string? resultName, string? errorMessageName, CancellationToken cancellationToken);
+}
