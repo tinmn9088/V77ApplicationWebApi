@@ -1,10 +1,17 @@
 namespace V77ApplicationWebApi.Core;
 
-public class ConnectionProperties(string infobasePath, string username, string password)
+public record ConnectionProperties
 {
-    public string InfobasePath { get; } = infobasePath;
+    public ConnectionProperties(string infobasePath, string username, string password)
+    {
+        InfobasePath = infobasePath;
+        Username = username;
+        Password = password;
+    }
 
-    public string Username { get; } = username;
+    public string InfobasePath { get; }
 
-    public string Password { get; } = password;
+    public string Username { get; }
+
+    public string Password { get; }
 }
