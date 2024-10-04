@@ -358,6 +358,10 @@ dotnet_diagnostic.SA1311.severity = none
 dotnet_diagnostic.SA1600.severity = none
 dotnet_diagnostic.SA1633.severity = none
 
+#### Warnings ####
+
+dotnet_diagnostic.S1135.severity = warning
+
 
 
 ##########################################
