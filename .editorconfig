@@ -348,6 +348,7 @@ dotnet_naming_rule.prefix_camel_case_with_s_underscore_private_static_fields.sev
 dotnet_diagnostic.CS8632.severity = none
 dotnet_diagnostic.SA0001.severity = none
 dotnet_diagnostic.SA1000.severity = none
+dotnet_diagnostic.SA1009.severity = none
 dotnet_diagnostic.SA1010.severity = none
 dotnet_diagnostic.SA1011.severity = none
 dotnet_diagnostic.SA1101.severity = none
