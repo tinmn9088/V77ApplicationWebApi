@@ -15,6 +15,7 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">The token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+    /// <exception cref="FailedToConnectException">If failed to connect to infobase.</exception>
     ValueTask ConnectAsync(CancellationToken cancellationToken);
 
     /// <summary>
