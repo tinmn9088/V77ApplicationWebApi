@@ -54,6 +54,7 @@
     <Compile Include="ConnectionProperties.cs" />
     <Compile Include="FailedToRunErtException.cs" />
     <Compile Include="IV77ApplicationConnection.cs" />
+    <Compile Include="IV77ApplicationConnectionFactory.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
