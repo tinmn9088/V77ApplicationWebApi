@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using V77ApplicationWebApi.Core.Exceptions;
 
 namespace V77ApplicationWebApi.Core;
 
 public interface IV77ApplicationConnection : IAsyncDisposable
 {
+    ConnectionProperties Properties { get; }
+
     /// <summary>
     /// Connect to infobase.
     /// </summary>
