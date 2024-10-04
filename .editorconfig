@@ -257,10 +257,9 @@ dotnet_naming_symbols.public_static_readonly_fields.applicable_kinds = field
 dotnet_naming_symbols.public_static_readonly_fields.applicable_accessibilities = public, protected, protected_internal
 dotnet_naming_symbols.public_static_readonly_fields.required_modifiers = static, readonly
 
-# public/protected/internal constant fields
-dotnet_naming_symbols.public_constant_fields.applicable_kinds = field
-dotnet_naming_symbols.public_constant_fields.applicable_accessibilities = public, protected, protected_internal
-dotnet_naming_symbols.public_constant_fields.required_modifiers = const
+# constant fields
+dotnet_naming_symbols.constant_fields.applicable_kinds = field
+dotnet_naming_symbols.constant_fields.required_modifiers = const
 
 # private/internal fields
 dotnet_naming_symbols.private_fields.applicable_kinds = field
@@ -323,9 +322,9 @@ dotnet_naming_rule.pascal_case_public_static_readonly_fields.style = pascal_case
 dotnet_naming_rule.pascal_case_public_static_readonly_fields.severity = error
 
 # public/protected/internal constant fields use PascalCase
-dotnet_naming_rule.pascal_case_public_constant_fields.symbols = public_constant_fields
-dotnet_naming_rule.pascal_case_public_constant_fields.style = pascal_case_style
-dotnet_naming_rule.pascal_case_public_constant_fields.severity = error
+dotnet_naming_rule.pascal_case_constant_fields.symbols = constant_fields
+dotnet_naming_rule.pascal_case_constant_fields.style = pascal_case_style
+dotnet_naming_rule.pascal_case_constant_fields.severity = error
 
 # private/internal fields use camelCase and are prefixed with '_'
 dotnet_naming_rule.underscore_camel_case_private_fields.symbols  = private_fields
