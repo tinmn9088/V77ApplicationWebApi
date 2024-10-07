@@ -42,7 +42,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
         ErrorsCount = 0;
     }
 
-    public static TimeSpan InitializeTimeout => TimeSpan.FromSeconds(30);
+    public static TimeSpan DefaultInitializeTimeout => TimeSpan.FromSeconds(30);
 
     public static string ComObjectTypeName => "V77.Application";
 
@@ -129,13 +129,13 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     /// Run in parallel:
     /// <list type="number">
     /// <item>Initializing <see cref="_comObject"/></item>
-    /// <item>Timer to detect if <see cref="InitializeTimeout"/> is exceeded</item>
+    /// <item>Timer to detect if <see cref="DefaultInitializeTimeout"/> is exceeded</item>
     /// </list>
     /// </summary>
     /// <param name="cancellationToken">The token to monitor for cancellation.</param>
     /// <returns><c>true</c> if initialization was successful.</returns>
     /// <exception cref="InitializeTimeoutExceededException">
-    /// If initialization took more time than <see cref="InitializeTimeout"/>.
+    /// If initialization took more time than <see cref="DefaultInitializeTimeout"/>.
     /// </exception>
     private async ValueTask<bool> InitializeComObjectAsync(CancellationToken cancellationToken)
     {
@@ -165,7 +165,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                 return (bool)InvokeMethod(
                     target: _comObject,
                     methodName: "Initialize",
-                    args: [rmtrade!, $"/D{Properties.InfobasePath} /N{Properties.Username} /P{Properties.Password}", "NO_SPLASH_SHOW"],
+                    args: [rmtrade, $"/D{Properties.InfobasePath} /N{Properties.Username} /P{Properties.Password}", "NO_SPLASH_SHOW"],
                     isInitializing: true);
             }, cancellationToken);
 
@@ -174,14 +174,14 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
             async () =>
             {
                 await initializeTaskStarted.WaitAsync(cancellationToken).ConfigureAwait(false);
-                await Task.Delay(InitializeTimeout, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(Properties.InitializeTimeout ?? DefaultInitializeTimeout, cancellationToken).ConfigureAwait(false);
             }, cancellationToken);
 
         // Confirm that initializeTask completed before timeoutExceededTask
         bool timeoutExceeded = await Task.WhenAny(initializeTask, timeoutExceededTask).ConfigureAwait(false) != initializeTask;
 
         return timeoutExceeded
-            ? throw new InitializeTimeoutExceededException(InitializeTimeout)
+            ? throw new InitializeTimeoutExceededException(DefaultInitializeTimeout)
             : await initializeTask;
     }
 
