@@ -25,8 +25,6 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
     private bool _isInitialized;
 
-    private int _errorsCount;
-
     internal ComV77ApplicationConnection(
         ConnectionProperties properties,
         IInstanceFactory instanceFactory,
@@ -41,16 +39,18 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
         _connectionLock = new(1);
         _isInitialized = false;
-        _errorsCount = 0;
+        ErrorsCount = 0;
     }
 
     public static TimeSpan InitializeTimeout => TimeSpan.FromSeconds(30);
 
     public static string ComObjectTypeName => "V77.Application";
 
+    public static int MaxErrorsCount => 3;
+
     public ConnectionProperties Properties { get; }
 
-    private static int MaxErrorsCount => 3;
+    public int ErrorsCount { get; private set; }
 
     public async ValueTask ConnectAsync(CancellationToken cancellationToken)
     {
@@ -67,12 +67,16 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             if (!_isInitialized)
             {
-                _isInitialized = await InitializeAsync(cancellationToken).ConfigureAwait(false);
+                _isInitialized = await InitializeComObjectAsync(cancellationToken).ConfigureAwait(false);
             }
+        }
+        catch (ErrorsCountExceededException)
+        {
+            throw;
         }
         catch (Exception)
         {
-            _errorsCount++;
+            ErrorsCount++;
             throw;
         }
         finally
@@ -92,19 +96,19 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     public ValueTask<string> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, string errorMessageName, CancellationToken cancellationToken) => throw new NotImplementedException();
 
     /// <summary>
-    /// Confirm that <see cref="_errorsCount"/> is not exceeded and COM-object
+    /// Confirm that <see cref="ErrorsCount"/> is not exceeded and COM-object
     /// is created and initialized.
     /// </summary>
-    /// <param name="isInitializing">When <c>true</c> only <see cref="_errorsCount"/> value is checked.</param>
-    /// <exception cref="ErrorsCountExceededException">If <see cref="_errorsCount"/> is exceeded.</exception>
+    /// <param name="isInitializing">When <c>true</c> only <see cref="ErrorsCount"/> value is checked.</param>
+    /// <exception cref="ErrorsCountExceededException">If <see cref="ErrorsCount"/> is exceeded.</exception>
     /// <exception cref="InvalidOperationException">
     /// If <see cref="_comObject"/> is not created yet, or <see cref="_isInitialized"/> is <c>false</c>.
     /// </exception>
     private void CheckState(bool isInitializing = false)
     {
-        if (_errorsCount >= MaxErrorsCount)
+        if (ErrorsCount >= MaxErrorsCount)
         {
-            throw new ErrorsCountExceededException(_errorsCount);
+            throw new ErrorsCountExceededException(ErrorsCount);
         }
 
         if (!isInitializing)
@@ -133,7 +137,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     /// <exception cref="InitializeTimeoutExceededException">
     /// If initialization took more time than <see cref="InitializeTimeout"/>.
     /// </exception>
-    private async ValueTask<bool> InitializeAsync(CancellationToken cancellationToken)
+    private async ValueTask<bool> InitializeComObjectAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -197,20 +201,25 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     private object? GetPropertyValue(object target, string propertyName, bool isInitializing = false) =>
         CheckStateAndHandleError(() => _memberInvoker.GetPropertyValueByName(target, propertyName), isInitializing);
 
-    /// <param name="isInitializing"><c>true</c> if called within <see cref="InitializeAsync(CancellationToken)"/>.</param>
+    /// <remarks>Increments <see cref="ErrorsCount"/> on error.</remarks>
+    /// <param name="isInitializing"><c>true</c> if called within <see cref="InitializeComObjectAsync(CancellationToken)"/>.</param>
     private object? CheckStateAndHandleError(Func<object?> getValue, bool isInitializing)
     {
-        CheckState(isInitializing: isInitializing);
-
         try
         {
+            CheckState(isInitializing: isInitializing);
+
             return getValue();
+        }
+        catch (ErrorsCountExceededException)
+        {
+            throw;
         }
         catch (Exception)
         {
             if (!isInitializing)
             {
-                _errorsCount++;
+                ErrorsCount++;
             }
 
             throw;
