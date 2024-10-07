@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following
@@ -30,3 +31,11 @@ using System.Runtime.InteropServices;
 //
 [assembly: AssemblyVersion("0.0.0.0")]
 [assembly: AssemblyFileVersion("0.0.0.0")]
+
+#if DEBUG
+
+// For testing
+[assembly: InternalsVisibleTo("V77ApplicationWebApi.Infrastructure.UnitTests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+
+#endif
