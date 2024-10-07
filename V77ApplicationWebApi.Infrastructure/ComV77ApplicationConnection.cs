@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using V77ApplicationWebApi.Core;
+using V77ApplicationWebApi.Core.Exceptions;
 using V77ApplicationWebApi.Infrastructure.Exceptions;
 using static V77ApplicationWebApi.Infrastructure.Logging.LoggerExtensions;
 
@@ -70,14 +72,14 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                 _isInitialized = await InitializeComObjectAsync(cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (ErrorsCountExceededException)
+        catch (ErrorsCountExceededException ex)
         {
-            throw;
+            throw new FailedToConnectException(Properties.InfobasePath, ex);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             ErrorsCount++;
-            throw;
+            throw new FailedToConnectException(Properties.InfobasePath, ex);
         }
         finally
         {
@@ -87,13 +89,74 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
     public ValueTask DisposeAsync() => throw new NotImplementedException();
 
-    public ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public async ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken) =>
+        await RunErtAsync(ertRelativePath, ertContext: default, cancellationToken);
 
-    public ValueTask RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public async ValueTask RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, CancellationToken cancellationToken) =>
+        _ = await RunErtAsync(ertRelativePath, ertContext, resultName: default, cancellationToken).ConfigureAwait(false);
 
-    public ValueTask<string> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, CancellationToken cancellationToken) =>
+        RunErtAsync(ertRelativePath, ertContext, resultName, errorMessageName: default, cancellationToken);
 
-    public ValueTask<string> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, string errorMessageName, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public async ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, string errorMessageName, CancellationToken cancellationToken)
+    {
+        await _connectionLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string ertFullPath = Path.Combine(Properties.InfobasePath, ertRelativePath);
+
+            // CreateObject("ValueList")
+            object contextValueList = InvokeMethod(_comObject, "CreateObject", ["ValueList"]);
+
+            if (ertContext is not null)
+            {
+                foreach (KeyValuePair<string, string> ertContextEntry in ertContext)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // ValueList.AddValue(Value, Name)
+                    _ = InvokeMethod(contextValueList, "AddValue", [ertContextEntry.Value, ertContextEntry.Key]);
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // OpenForm(ObjectName, Context, FullPath)
+            _ = InvokeMethod(_comObject, "OpenForm", ["Report", contextValueList, ertFullPath]);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (errorMessageName is not null)
+            {
+                // ValueList.Get(Name)
+                object? errorMessage = InvokeMethod(contextValueList, "Get", [errorMessageName]);
+
+                if (errorMessage is not null)
+                {
+                    throw new FailedToRunErtException(Properties.InfobasePath, errorMessage.ToString());
+                }
+            }
+
+            if (resultName is not null)
+            {
+                // ValueList.Get(Name)
+                object? result = InvokeMethod(contextValueList, "Get", [resultName]);
+
+                return result?.ToString();
+            }
+            else
+            {
+                return default;
+            }
+        }
+        finally
+        {
+            _ = _connectionLock.Release();
+        }
+    }
 
     /// <summary>
     /// Confirm that <see cref="ErrorsCount"/> is not exceeded and COM-object
@@ -169,16 +232,23 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                     isInitializing: true);
             }, cancellationToken);
 
+        // Prepare cancellation token for timer task
+        using CancellationTokenSource timeoutExceededTaskCancellationTokenSource = new();
+        CancellationToken timeoutExceededTaskCancellationToken = timeoutExceededTaskCancellationTokenSource.Token;
+
         // Timer task
         Task timeoutExceededTask = Task.Run(
             async () =>
             {
                 await initializeTaskStarted.WaitAsync(cancellationToken).ConfigureAwait(false);
-                await Task.Delay(Properties.InitializeTimeout ?? DefaultInitializeTimeout, cancellationToken).ConfigureAwait(false);
-            }, cancellationToken);
+                await Task.Delay(Properties.InitializeTimeout ?? DefaultInitializeTimeout, timeoutExceededTaskCancellationToken).ConfigureAwait(false);
+            }, timeoutExceededTaskCancellationToken);
 
-        // Confirm that initializeTask completed before timeoutExceededTask
+        // Confirm that initialization task completed before timer task
         bool timeoutExceeded = await Task.WhenAny(initializeTask, timeoutExceededTask).ConfigureAwait(false) != initializeTask;
+
+        // Explicitly cancel timer task
+        timeoutExceededTaskCancellationTokenSource.Cancel();
 
         return timeoutExceeded
             ? throw new InitializeTimeoutExceededException(DefaultInitializeTimeout)
@@ -210,6 +280,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
             CheckState(isInitializing: isInitializing);
 
             return getValue();
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
         }
         catch (ErrorsCountExceededException)
         {
