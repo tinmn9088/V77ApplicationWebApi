@@ -41,18 +41,18 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
         _connectionLock = new(1);
         _isInitialized = false;
-        ErrorsCount = 0;
+        ComObjectErrorsCount = 0;
     }
 
     public static TimeSpan DefaultInitializeTimeout => TimeSpan.FromSeconds(30);
 
     public static string ComObjectTypeName => "V77.Application";
 
-    public static int MaxErrorsCount => 3;
+    public static int MaxComObjectErrorsCount => 3;
 
     public ConnectionProperties Properties { get; }
 
-    public int ErrorsCount { get; private set; }
+    public int ComObjectErrorsCount { get; private set; }
 
     public async ValueTask ConnectAsync(CancellationToken cancellationToken)
     {
@@ -66,6 +66,8 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             _comObjectType ??= GetComObjectType();
             _comObject ??= CreateComObject();
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!_isInitialized)
             {
@@ -87,7 +89,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
         }
         catch (Exception ex)
         {
-            ErrorsCount++;
+            ComObjectErrorsCount++;
             throw new FailedToConnectException(Properties.InfobasePath, ex);
         }
         finally
@@ -109,12 +111,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
     public async ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, string errorMessageName, CancellationToken cancellationToken)
     {
-        await _connectionLock.WaitAsync().ConfigureAwait(false);
+        await _connectionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             string ertFullPath = Path.Combine(Properties.InfobasePath, ertRelativePath);
 
             // CreateObject("ValueList")
@@ -145,10 +145,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                 methodName: "OpenForm",
                 args: ["Report", contextValueList, ertFullPath]);
 
-            cancellationToken.ThrowIfCancellationRequested();
-
             if (errorMessageName is not null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // ValueList.Get(Name)
                 object? errorMessage = InvokeMethod(
                     target: contextValueList,
@@ -163,6 +163,8 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             if (resultName is not null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // ValueList.Get(Name)
                 object? result = InvokeMethod(
                     target: contextValueList,
@@ -195,18 +197,18 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     }
 
     /// <summary>
-    /// Confirm that <see cref="ErrorsCount"/> is not exceeded and COM-object is created and initialized.
+    /// Confirm that <see cref="ComObjectErrorsCount"/> is not exceeded and COM-object is created and initialized.
     /// </summary>
-    /// <param name="isInitializing">When <c>true</c> only <see cref="ErrorsCount"/> value is checked.</param>
-    /// <exception cref="ErrorsCountExceededException">If <see cref="ErrorsCount"/> is exceeded.</exception>
+    /// <param name="isInitializing">When <c>true</c> only <see cref="ComObjectErrorsCount"/> value is checked.</param>
+    /// <exception cref="ErrorsCountExceededException">If <see cref="ComObjectErrorsCount"/> is exceeded.</exception>
     /// <exception cref="InvalidOperationException">
     /// If <see cref="_comObject"/> is not created yet, or <see cref="_isInitialized"/> is <c>false</c>.
     /// </exception>
     private void CheckState(bool isInitializing = false)
     {
-        if (ErrorsCount >= MaxErrorsCount)
+        if (ComObjectErrorsCount >= MaxComObjectErrorsCount)
         {
-            throw new ErrorsCountExceededException(ErrorsCount);
+            throw new ErrorsCountExceededException(ComObjectErrorsCount);
         }
 
         if (!isInitializing)
@@ -317,7 +319,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     private object? GetPropertyValue(object target, string propertyName, bool isInitializing = false) =>
         CheckStateAndHandleError(() => _memberInvoker.GetPropertyValueByName(target, propertyName), isInitializing);
 
-    /// <remarks>If <paramref name="isInitializing"/> is <c>false</c> increments <see cref="ErrorsCount"/> on errors
+    /// <remarks>If <paramref name="isInitializing"/> is <c>false</c> increments <see cref="ComObjectErrorsCount"/> on errors
     /// (excluding <see cref="ErrorsCountExceededException"/> and <see cref="InvalidOperationException"/>).</remarks>
     /// <param name="isInitializing"><c>true</c> if called within <see cref="InitializeAsync(CancellationToken)"/>.</param>
     /// <inheritdoc cref="CheckState(bool)"/>
@@ -341,7 +343,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
         {
             if (!isInitializing)
             {
-                ErrorsCount++;
+                ComObjectErrorsCount++;
             }
 
             throw;

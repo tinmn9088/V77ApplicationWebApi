@@ -62,7 +62,58 @@ public class ComV77ApplicationConnectionTests
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenCannotCreateType_ThrowsFailedToConnectExceptionAndIncrementsErrorsCount()
+    public async Task ConnectAsync_WhenCalledMultipleTimes_ShouldCreateAndInitializeComObjectOnce()
+    {
+        // Arrange
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        object fakeComObject = new();
+        Type fakeComObjectType = fakeComObject.GetType();
+
+        // Setup
+        _instanceFactoryMock.SetupToConnect(comObject: fakeComObject, comObjectType: fakeComObjectType);
+        _memberInvokerMock.SetupToInitializeConnection(rmtrade: 42, initializeResult: true);
+
+        // Act
+        for (int i = 0; i < 3; i++)
+        {
+            await connection.ConnectAsync(CancellationToken.None);
+        }
+
+        // Verify
+        _instanceFactoryMock.VerifyGetTypeFromProgID(progID: ComV77ApplicationConnection.ComObjectTypeName, times: Times.Once);
+        _instanceFactoryMock.VerifyCreateInstance(type: fakeComObjectType, times: Times.Once);
+        _memberInvokerMock.VerifyGetPropertyValueByName(target: fakeComObject, propertyName: "RMTrade", times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(target: fakeComObject, methodName: "Initialize", verifyArgs: a => a.Length == 3, times: Times.Once);
+        _instanceFactoryMock.VerifyNoOtherCalls();
+        _memberInvokerMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WhenOperationIsCancelled_ThrowsOperationCanceledExceptionAndNotIncrementsComObjectErrorsCount()
+    {
+        // Arrange
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        Type fakeComObjectType = typeof(object);
+        using CancellationTokenSource tokenSource = new();
+
+        // Setup
+        _ = _instanceFactoryMock
+            .SetupGetTypeFromProgID()
+            .Callback((string _) => tokenSource.Cancel())
+            .Returns(fakeComObjectType);
+
+        // Act
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => connection.ConnectAsync(tokenSource.Token).AsTask());
+
+        // Verify
+        _memberInvokerMock.VerifyNoOtherCalls();
+
+        // Assert
+        Assert.Equal(0, connection.ComObjectErrorsCount);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WhenCannotCreateType_ThrowsFailedToConnectExceptionAndIncrementsComObjectErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
@@ -81,7 +132,7 @@ public class ComV77ApplicationConnectionTests
         _memberInvokerMock.VerifyNoOtherCalls();
 
         // Assert
-        Assert.Equal(1, connection.ErrorsCount);
+        Assert.Equal(1, connection.ComObjectErrorsCount);
     }
 
     [Fact]
@@ -96,22 +147,22 @@ public class ComV77ApplicationConnectionTests
             .Throws<Exception>();
 
         // Act, Assert
-        for (int i = 0; i < ComV77ApplicationConnection.MaxErrorsCount; i++)
+        for (int i = 0; i < ComV77ApplicationConnection.MaxComObjectErrorsCount; i++)
         {
             ValueTask connectTask = connection.ConnectAsync(CancellationToken.None);
             _ = await Assert.ThrowsAnyAsync<Exception>(connectTask.AsTask);
         }
 
-        Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
+        Assert.Equal(ComV77ApplicationConnection.MaxComObjectErrorsCount, connection.ComObjectErrorsCount);
 
         _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
-        // ErrorsCount must not exceed MaxErrorsCount after sequential calls
-        Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
+        // ComObjectErrorsCount must not exceed MaxComObjectErrorsCount after sequential calls
+        Assert.Equal(ComV77ApplicationConnection.MaxComObjectErrorsCount, connection.ComObjectErrorsCount);
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenFailsToInvokeMember_ThrowsFailedToConnectExceptionAndIncrementsErrorsCount()
+    public async Task ConnectAsync_WhenFailsToInvokeMember_ThrowsFailedToConnectExceptionAndIncrementsComObjectErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
@@ -137,7 +188,7 @@ public class ComV77ApplicationConnectionTests
         _instanceFactoryMock.VerifyNoOtherCalls();
 
         // Assert
-        Assert.Equal(1, connection.ErrorsCount);
+        Assert.Equal(1, connection.ComObjectErrorsCount);
     }
 
     [Fact]
@@ -417,6 +468,28 @@ public class ComV77ApplicationConnectionTests
     }
 
     [Fact]
+    public async Task RunErtAsync_WhenOperationIsCancelled_ThrowsOperationCanceledExceptionAndNotIncrementsComObjectErrorsCount()
+    {
+        // Arrange
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        object fakeComObject = new();
+        object fakeContextValueList = new();
+        using CancellationTokenSource tokenSource = new();
+
+        // Setup
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToInitializeConnection(rmtrade: 42, initializeResult: true);
+        _ = _memberInvokerMock
+            .SetupInvokePublicMethodByName(methodName: "CreateObject")
+            .Callback((object _, string _, object[] _) => tokenSource.Cancel())
+            .Returns(fakeContextValueList);
+
+        // Act, Assert
+        await connection.ConnectAsync(CancellationToken.None);
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => connection.RunErtAsync(DefaultErtRelativePath, tokenSource.Token).AsTask());
+    }
+
+    [Fact]
     public async Task RunErtAsyncsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
@@ -433,7 +506,7 @@ public class ComV77ApplicationConnectionTests
         // Act
         await connection.ConnectAsync(CancellationToken.None);
 
-        for (int i = 0; i < ComV77ApplicationConnection.MaxErrorsCount; i++)
+        for (int i = 0; i < ComV77ApplicationConnection.MaxComObjectErrorsCount; i++)
         {
             ValueTask runErtTask = connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
             _ = await Assert.ThrowsAnyAsync<Exception>(runErtTask.AsTask);
@@ -442,20 +515,46 @@ public class ComV77ApplicationConnectionTests
         _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
-        Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
+        Assert.Equal(ComV77ApplicationConnection.MaxComObjectErrorsCount, connection.ComObjectErrorsCount);
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementErrorsCount()
+    public async Task RunErtAsyncsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
 
-        // Act (without ConnectAsync)
+        // Act (missing ConnectAsync)
         _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
-        Assert.Equal(0, connection.ErrorsCount);
+        Assert.Equal(0, connection.ComObjectErrorsCount);
+    }
+
+    [Fact]
+    public async Task RunErtAsyncsync_WhenIsNotInitialized_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
+    {
+        // Arrange
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        object fakeComObject = new();
+
+        // Setup
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _ = _memberInvokerMock
+            .SetupGetPropertyValueByName(propertyName: "RMTrade")
+            .Returns(42);
+        _ = _memberInvokerMock
+            .SetupInvokePublicMethodByName(methodName: "Initialize")
+            .Returns(false);
+
+        // Act
+        ValueTask connectTask = connection.ConnectAsync(CancellationToken.None);
+        _ = await Assert.ThrowsAsync<FailedToConnectException>(connectTask.AsTask);
+        ValueTask runErtTask = connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(runErtTask.AsTask);
+
+        // Assert
+        Assert.Equal(1, connection.ComObjectErrorsCount);
     }
 
     private ComV77ApplicationConnection CreateDefaultConnection() => new(
