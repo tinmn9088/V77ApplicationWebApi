@@ -67,6 +67,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Exceptions\FailedToInitializeException.cs" />
     <Compile Include="Exceptions\FailedToCreateInstanceException.cs" />
     <Compile Include="Exceptions\InitializeTimeoutExceededException.cs" />
     <Compile Include="Helpers\MessageHelper.cs" />

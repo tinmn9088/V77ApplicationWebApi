@@ -8,6 +8,7 @@ using Moq;
 using V77ApplicationWebApi.Core;
 using V77ApplicationWebApi.Core.Exceptions;
 using V77ApplicationWebApi.Infrastructure.Exceptions;
+using V77ApplicationWebApi.Infrastructure.UnitTests.Helpers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -43,83 +44,41 @@ public class ComV77ApplicationConnectionTests
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<string>()))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<string>(),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
+        _instanceFactoryMock.SetupToConnect(comObject: fakeComObject, comObjectType: fakeComObjectType);
+        _memberInvokerMock.SetupToInitializeConnection(rmtrade: 42, initializeResult: true);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
 
         // Verify
-        _instanceFactoryMock
-            .Verify(f => f.GetTypeFromProgID(It.Is<string>(p => p == ComV77ApplicationConnection.ComObjectTypeName)), Times.Once);
-        _instanceFactoryMock
-            .Verify(f => f.CreateInstance(It.Is<Type>(t => t == fakeComObjectType)), Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.GetPropertyValueByName(
-                    It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                    It.Is<string>(n => n == "RMTrade")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                    It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                    It.Is<string>(n => n == "Initialize"),
-                    It.Is<object[]>(a => a.Length == 3)),
-                Times.Once);
+        _instanceFactoryMock.VerifyGetTypeFromProgID(progID: ComV77ApplicationConnection.ComObjectTypeName, times: Times.Once);
+        _instanceFactoryMock.VerifyCreateInstance(type: fakeComObjectType, times: Times.Once);
+        _memberInvokerMock.VerifyGetPropertyValueByName(target: fakeComObject, propertyName: "RMTrade", times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(target: fakeComObject, methodName: "Initialize", verifyArgs: a => a.Length == 3, times: Times.Once);
+        _instanceFactoryMock.VerifyNoOtherCalls();
+        _memberInvokerMock.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenCannotCreateType_ThrowsExceptionAndIncrementsErrorsCount()
+    public async Task ConnectAsync_WhenCannotCreateType_ThrowsFailedToConnectExceptionAndIncrementsErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
 
         // Setup
         _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
+            .SetupGetTypeFromProgID()
             .Throws<Exception>();
 
         // Act
-        _ = await Assert.ThrowsAnyAsync<Exception>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAnyAsync<FailedToConnectException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
         // Verify
-        _instanceFactoryMock
-            .Verify(f => f.GetTypeFromProgID(It.Is<string>(p => p == ComV77ApplicationConnection.ComObjectTypeName)), Times.Once);
-        _instanceFactoryMock
-            .Verify(f => f.CreateInstance(It.IsAny<Type>()), Times.Never);
-        _memberInvokerMock
-            .Verify(
-                i => i.GetPropertyValueByName(
-                    It.IsAny<object>(),
-                    It.IsAny<string>()),
-                Times.Never);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                    It.IsAny<object>(),
-                    It.IsAny<string>(),
-                    It.IsAny<object[]>()),
-                Times.Never);
+        _instanceFactoryMock.VerifyGetTypeFromProgID(progID: ComV77ApplicationConnection.ComObjectTypeName, times: Times.Once);
+        _instanceFactoryMock.VerifyNoOtherCalls();
+        _memberInvokerMock.VerifyNoOtherCalls();
 
         // Assert
         Assert.Equal(1, connection.ErrorsCount);
@@ -136,21 +95,23 @@ public class ComV77ApplicationConnectionTests
             .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
             .Throws<Exception>();
 
-        // Act
+        // Act, Assert
         for (int i = 0; i < ComV77ApplicationConnection.MaxErrorsCount; i++)
         {
             ValueTask connectTask = connection.ConnectAsync(CancellationToken.None);
             _ = await Assert.ThrowsAnyAsync<Exception>(connectTask.AsTask);
         }
 
+        Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
+
         _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
-        // Assert
+        // ErrorsCount must not exceed MaxErrorsCount after sequential calls
         Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenErrorOnInvokeMember_ShouldNotIncrementsErrorsCount()
+    public async Task ConnectAsync_WhenFailsToInvokeMember_ThrowsFailedToConnectExceptionAndIncrementsErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
@@ -158,42 +119,38 @@ public class ComV77ApplicationConnectionTests
         Type fakeComObjectType = fakeComObject.GetType();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
+        _instanceFactoryMock.SetupToConnect(fakeComObject, fakeComObjectType);
         _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<string>()))
-            .Throws<FailedToInvokeMemberException>(() => new(fakeComObject, "ErrorProneMemberName", args: null, innerException: null));
+            .SetupGetPropertyValueByName()
+            .Throws<FailedToInvokeMemberException>(() => new(
+                target: fakeComObject,
+                memberName: "ErrorProneMemberName",
+                args: null,
+                innerException: null));
 
         // Act
         _ = await Assert.ThrowsAsync<FailedToConnectException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
         // Verify
-        _instanceFactoryMock
-            .Verify(f => f.GetTypeFromProgID(It.Is<string>(p => p == ComV77ApplicationConnection.ComObjectTypeName)), Times.Once);
-        _instanceFactoryMock
-            .Verify(f => f.CreateInstance(It.Is<Type>(t => t == fakeComObjectType)), Times.Once);
+        _instanceFactoryMock.VerifyGetTypeFromProgID(progID: ComV77ApplicationConnection.ComObjectTypeName, times: Times.Once);
+        _instanceFactoryMock.VerifyCreateInstance(type: fakeComObjectType, times: Times.Once);
+        _instanceFactoryMock.VerifyNoOtherCalls();
 
         // Assert
         Assert.Equal(1, connection.ErrorsCount);
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenExceedesInitializateTimeoutLimit_ThrowsInitializeTimeoutExceededException()
+    public async Task ConnectAsync_WhenExceedesInitializeTimeout_ThrowsFailedToConnectException()
     {
         // Arrange
-        ConnectionProperties properties = new(
+        ConnectionProperties propertiesWithZeroTimeout = new(
             infobasePath: DefaultConnectionProperties.InfobasePath,
             username: DefaultConnectionProperties.Username,
             password: DefaultConnectionProperties.Password,
             initializeTimeout: TimeSpan.Zero);
         ComV77ApplicationConnection connection = new(
-            properties: properties,
+            properties: propertiesWithZeroTimeout,
             instanceFactory: _instanceFactoryMock.Object,
             memberInvoker: _memberInvokerMock.Object,
             logger: _loggerMock.Object);
@@ -201,39 +158,20 @@ public class ComV77ApplicationConnectionTests
         Type fakeComObjectType = fakeComObject.GetType();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
+        _instanceFactoryMock.SetupToConnect(fakeComObject, fakeComObjectType);
         _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<string>()))
+            .SetupGetPropertyValueByName()
             .Callback((object _, string _) => Task.Delay(Timeout.InfiniteTimeSpan).Wait());
 
         // Act
         _ = await Assert.ThrowsAsync<FailedToConnectException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
         // Verify
-        _instanceFactoryMock
-            .Verify(f => f.GetTypeFromProgID(It.Is<string>(p => p == ComV77ApplicationConnection.ComObjectTypeName)), Times.Once);
-        _instanceFactoryMock
-            .Verify(f => f.CreateInstance(It.Is<Type>(t => t == fakeComObjectType)), Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.GetPropertyValueByName(
-                    It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                    It.Is<string>(n => n == "RMTrade")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                    It.IsAny<object>(),
-                    It.IsAny<string>(),
-                    It.IsAny<object[]>()),
-                Times.Never);
+        _instanceFactoryMock.VerifyGetTypeFromProgID(progID: ComV77ApplicationConnection.ComObjectTypeName, times: Times.Once);
+        _instanceFactoryMock.VerifyCreateInstance(type: fakeComObjectType, times: Times.Once);
+        _memberInvokerMock.VerifyGetPropertyValueByName(target: fakeComObject, propertyName: "RMTrade", times: Times.Once);
+        _instanceFactoryMock.VerifyNoOtherCalls();
+        _memberInvokerMock.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -242,454 +180,240 @@ public class ComV77ApplicationConnectionTests
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
-        object fakeContextValueList = new();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        await connection.RunErtAsync(testErtRelativePath, CancellationToken.None);
+        await connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
     }
 
     [Fact]
-    public async Task RunErtAsync_WhenContextProvided_ShouldRunErt()
+    public async Task RunErtAsync_WhenErtContextPassed_ShouldRunErt()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
         Dictionary<string, string> ertContext = new()
         {
             { "Key1", "Value1" },
             { "Key2", "Value2" },
         };
-        object fakeContextValueList = new();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        await connection.RunErtAsync(testErtRelativePath, ertContext, CancellationToken.None);
+        await connection.RunErtAsync(DefaultErtRelativePath, ertContext, CancellationToken.None);
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
 
         foreach (KeyValuePair<string, string> ertContextEntry in ertContext)
         {
-            _memberInvokerMock
-                .Verify(
-                    i => i.InvokePublicMethodByName(
-                    It.Is<object>(t => ReferenceEquals(t, fakeContextValueList)),
-                    It.Is<string>(n => n == "AddValue"),
-                    It.Is<object[]>(a =>
-                        a.Length == 2
-                        && (a[0] as string) == ertContextEntry.Value
-                        && (a[1] as string) == ertContextEntry.Key)),
-                    Times.Once);
+            _memberInvokerMock.VerifyInvokePublicMethodByName(
+                target: fakeContextValueList,
+                methodName: "AddValue",
+                verifyArgs: a =>
+                    a.Length == 2
+                    && (a[0] as string) == ertContextEntry.Value
+                    && (a[1] as string) == ertContextEntry.Key,
+                times: Times.Once);
         }
 
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
     }
 
     [Fact]
-    public async Task RunErtAsync_WhenResultNameProvided_ShouldRunErtAndReturnResult()
+    public async Task RunErtAsync_WhenResultNamePassed_ShouldRunErtAndReturnResult()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
         string resultName = "TestErtResultName";
-        string fakeResult = "TestErtResult";
-        object fakeContextValueList = new();
+        string expectedResult = "TestErtResult";
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == resultName)))
-            .Returns(fakeResult);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList, resultName, expectedResult);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        string result = await connection.RunErtAsync(testErtRelativePath, ertContext: null, resultName, CancellationToken.None);
+        string actualResult = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName, CancellationToken.None);
 
         // Assert
-        Assert.Equal(fakeResult, result);
+        Assert.Equal(expectedResult, actualResult);
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeContextValueList)),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == resultName)),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeContextValueList,
+            methodName: "Get",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == resultName,
+            times: Times.Once);
     }
 
     [Fact]
-    public async Task RunErtAsync_WhenResultNameProvidedAndResultNull_ShouldRunErtAndReturnNull()
+    public async Task RunErtAsync_WhenResultNamePassedAndResultIsNull_ShouldRunErtAndReturnNull()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
-        string resultName = "TestErtResultName";
-        object fakeContextValueList = new();
+        string resultName = "TestErtNullResultName";
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == resultName)))
-            .Returns(null);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList, resultName, result: null);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        string result = await connection.RunErtAsync(testErtRelativePath, ertContext: null, resultName, CancellationToken.None);
+        string result = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName, CancellationToken.None);
 
         // Assert
         Assert.Null(result);
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeContextValueList)),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == resultName)),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeContextValueList,
+            methodName: "Get",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == resultName,
+            times: Times.Once);
     }
 
     [Fact]
-    public async Task RunErtAsync_WhenErrorMessageNameProvidedAndValueNullAfterRun_ShouldRunErt()
+    public async Task RunErtAsync_WhenErrorMessageNamePassedAndErrorMessageIsNullAfterRun_ShouldRunErt()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
         string errorMessageName = "TestErtErrorMessageName";
-        object fakeContextValueList = new();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == errorMessageName)))
-            .Returns(null);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList, resultName: null, result: null, errorMessageName, errorMessage: null);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        _ = await connection.RunErtAsync(testErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None);
+        _ = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None);
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeContextValueList)),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == errorMessageName)),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeContextValueList,
+            methodName: "Get",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == errorMessageName,
+            times: Times.Once);
     }
 
     [Fact]
-    public async Task RunErtAsync_WhenErrorMessageNameProvidedAndValueNotNullAfterRun_ThrowsFailedToRunErtException()
+    public async Task RunErtAsync_WhenErrorMessageNameProvidedAndErrorMessageIsNotNullAfterRun_ThrowsFailedToRunErtException()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
         string errorMessageName = "TestErtErrorMessageName";
         string errorMessage = "Error code - 1";
-        object fakeContextValueList = new();
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
-            .Returns(fakeContextValueList);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == errorMessageName)))
-            .Returns(errorMessage);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToRunErt(out object fakeContextValueList, resultName: null, result: null, errorMessageName, errorMessage);
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(testErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None).AsTask());
 
         // Verify
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeComObject)),
-                It.Is<string>(n => n == "OpenForm"),
-                It.Is<object[]>(a =>
-                    a.Length == 3
-                    && (a[0] as string) == "Report"
-                    && ReferenceEquals(a[1], fakeContextValueList)
-                    && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, testErtRelativePath))),
-                Times.Once);
-        _memberInvokerMock
-            .Verify(
-                i => i.InvokePublicMethodByName(
-                It.Is<object>(t => ReferenceEquals(t, fakeContextValueList)),
-                It.Is<string>(n => n == "Get"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == errorMessageName)),
-                Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "CreateObject",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == "ValueList",
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeComObject,
+            methodName: "OpenForm",
+            verifyArgs: a =>
+                a.Length == 3
+                && (a[0] as string) == "Report"
+                && ReferenceEquals(a[1], fakeContextValueList)
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+            times: Times.Once);
+        _memberInvokerMock.VerifyInvokePublicMethodByName(
+            target: fakeContextValueList,
+            methodName: "Get",
+            verifyArgs: a => a.Length == 1 && (a[0] as string) == errorMessageName,
+            times: Times.Once);
     }
 
     [Fact]
@@ -700,12 +424,10 @@ public class ComV77ApplicationConnectionTests
         object fakeComObject = new();
 
         // Setup
-        SetupInstanceFactory(fakeComObject);
-        SetupMemberInvoker(rmtrade: 42, initializeResult: true);
+        _instanceFactoryMock.SetupToConnect(fakeComObject);
+        _memberInvokerMock.SetupToInitializeConnection(rmtrade: 42, initializeResult: true);
         _ = _memberInvokerMock
-            .SetupInvokePublicMethodByName(
-                methodName: "CreateObject",
-                detectArgs: a => a.Length == 1 && (a[0] as string) == "ValueList")
+            .SetupInvokePublicMethodByName(methodName: "CreateObject")
             .Throws<Exception>();
 
         // Act
@@ -736,55 +458,9 @@ public class ComV77ApplicationConnectionTests
         Assert.Equal(0, connection.ErrorsCount);
     }
 
-    [Fact]
-    public async Task RunErtAsyncsync_WhenNotInitialized_ThrowsFailedToRunErtException()
-    {
-        // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
-        object fakeComObject = new();
-
-        // Setup
-        SetupInstanceFactory(fakeComObject);
-        SetupMemberInvoker(rmtrade: 42, initializeResult: false);
-
-        // Act
-        await connection.ConnectAsync(CancellationToken.None);
-        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
-
-        // Assert
-        Assert.Equal(0, connection.ErrorsCount);
-    }
-
     private ComV77ApplicationConnection CreateDefaultConnection() => new(
         properties: DefaultConnectionProperties,
         instanceFactory: _instanceFactoryMock.Object,
         memberInvoker: _memberInvokerMock.Object,
         logger: _loggerMock.Object);
-
-    /// <summary>
-    /// Setup <see cref="IInstanceFactory.GetTypeFromProgID(string)"/> and <see cref="IInstanceFactory.CreateInstance(Type)"/> methods.
-    /// </summary>
-    /// <param name="comObject">Instance to return from <see cref="IInstanceFactory.CreateInstance(Type)"/>.</param>
-    private void SetupInstanceFactory(object comObject)
-    {
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(comObject.GetType());
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(comObject);
-    }
-
-    /// <summary>
-    /// Setup "RMTrade" and "Initialize" methods.
-    /// </summary>
-    private void SetupMemberInvoker(int rmtrade, bool initializeResult)
-    {
-        _ = _memberInvokerMock
-            .SetupGetPropertyValueByName(propertyName: "RMTrade")
-            .Returns(rmtrade);
-        _ = _memberInvokerMock
-            .SetupInvokePublicMethodByName(methodName: "Initialize", detectArgs: _ => true)
-            .Returns(initializeResult);
-    }
 }

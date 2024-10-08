@@ -69,7 +69,12 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             if (!_isInitialized)
             {
+                _logger.LogInitializingConnection(Properties.InfobasePath);
                 _isInitialized = await InitializeAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogAlreadyConnected(Properties.InfobasePath);
             }
         }
         catch (OperationCanceledException)
@@ -236,6 +241,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     /// If initialization took more time than the limit.
     /// </exception>
     /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
+    /// <exception cref="FailedToInitializeException">If "Initialize" method returned false.</exception>
     private async ValueTask<bool> InitializeAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -261,11 +267,15 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Invoke "Initialize" method
-                return (bool)InvokeMethod(
+                bool isInitialized = (bool)InvokeMethod(
                     target: _comObject,
                     methodName: "Initialize",
                     args: [rmtrade, $"/D{Properties.InfobasePath} /N{Properties.Username} /P{Properties.Password}", "NO_SPLASH_SHOW"],
                     isInitializing: true);
+
+                return isInitialized
+                    ? isInitialized
+                    : throw new FailedToInitializeException(Properties.InfobasePath);
             }, cancellationToken);
 
         // Prepare cancellation token for timer task

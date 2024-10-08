@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit.Abstractions;
 
-namespace V77ApplicationWebApi.Infrastructure.UnitTests;
+namespace V77ApplicationWebApi.Infrastructure.UnitTests.Helpers;
 
 internal static class TestsHelper
 {
