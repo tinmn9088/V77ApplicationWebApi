@@ -70,7 +70,6 @@
     <Compile Include="Exceptions\FailedToCreateInstanceException.cs" />
     <Compile Include="Exceptions\InitializeTimeoutExceededException.cs" />
     <Compile Include="Helpers\MessageHelper.cs" />
-    <Compile Include="Exceptions\ErrorsCountExceededException.cs" />
     <Compile Include="Exceptions\FailedToGetTypeFromProgIDException.cs" />
     <Compile Include="Exceptions\FailedToInvokeMemberException.cs" />
     <Compile Include="IMemberInvoker.cs" />

@@ -69,12 +69,16 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             if (!_isInitialized)
             {
-                _isInitialized = await InitializeComObjectAsync(cancellationToken).ConfigureAwait(false);
+                _isInitialized = await InitializeAsync(cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (ErrorsCountExceededException ex)
+        catch (OperationCanceledException)
         {
-            throw new FailedToConnectException(Properties.InfobasePath, ex);
+            throw;
+        }
+        catch (ErrorsCountExceededException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -109,7 +113,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
             string ertFullPath = Path.Combine(Properties.InfobasePath, ertRelativePath);
 
             // CreateObject("ValueList")
-            object contextValueList = InvokeMethod(_comObject, "CreateObject", ["ValueList"]);
+            object contextValueList = InvokeMethod(
+                target: _comObject,
+                methodName: "CreateObject",
+                args: ["ValueList"]);
 
             if (ertContext is not null)
             {
@@ -118,32 +125,44 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // ValueList.AddValue(Value, Name)
-                    _ = InvokeMethod(contextValueList, "AddValue", [ertContextEntry.Value, ertContextEntry.Key]);
+                    _ = InvokeMethod(
+                        target: contextValueList,
+                        methodName: "AddValue",
+                        args: [ertContextEntry.Value, ertContextEntry.Key]);
                 }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
 
             // OpenForm(ObjectName, Context, FullPath)
-            _ = InvokeMethod(_comObject, "OpenForm", ["Report", contextValueList, ertFullPath]);
+            _ = InvokeMethod(
+                target: _comObject,
+                methodName: "OpenForm",
+                args: ["Report", contextValueList, ertFullPath]);
 
             cancellationToken.ThrowIfCancellationRequested();
 
             if (errorMessageName is not null)
             {
                 // ValueList.Get(Name)
-                object? errorMessage = InvokeMethod(contextValueList, "Get", [errorMessageName]);
+                object? errorMessage = InvokeMethod(
+                    target: contextValueList,
+                    methodName: "Get",
+                    args: [errorMessageName]);
 
                 if (errorMessage is not null)
                 {
-                    throw new FailedToRunErtException(Properties.InfobasePath, errorMessage.ToString());
+                    throw new ErtReturnedErrorMessageException(Properties.InfobasePath, errorMessage.ToString());
                 }
             }
 
             if (resultName is not null)
             {
                 // ValueList.Get(Name)
-                object? result = InvokeMethod(contextValueList, "Get", [resultName]);
+                object? result = InvokeMethod(
+                    target: contextValueList,
+                    methodName: "Get",
+                    args: [resultName]);
 
                 return result?.ToString();
             }
@@ -152,6 +171,18 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
                 return default;
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ErrorsCountExceededException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new FailedToRunErtException(Properties.InfobasePath, ex);
+        }
         finally
         {
             _ = _connectionLock.Release();
@@ -159,8 +190,7 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     }
 
     /// <summary>
-    /// Confirm that <see cref="ErrorsCount"/> is not exceeded and COM-object
-    /// is created and initialized.
+    /// Confirm that <see cref="ErrorsCount"/> is not exceeded and COM-object is created and initialized.
     /// </summary>
     /// <param name="isInitializing">When <c>true</c> only <see cref="ErrorsCount"/> value is checked.</param>
     /// <exception cref="ErrorsCountExceededException">If <see cref="ErrorsCount"/> is exceeded.</exception>
@@ -191,16 +221,22 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     /// <summary>
     /// Run in parallel:
     /// <list type="number">
-    /// <item>Initializing <see cref="_comObject"/></item>
-    /// <item>Timer to detect if <see cref="DefaultInitializeTimeout"/> is exceeded</item>
+    /// <item>
+    /// Initializing <see cref="_comObject"/>
+    /// </item>
+    /// <item>
+    /// Timer to detect if <see cref="ConnectionProperties.InitializeTimeout"/>
+    /// or <see cref="DefaultInitializeTimeout"/> is exceeded
+    /// </item>
     /// </list>
     /// </summary>
     /// <param name="cancellationToken">The token to monitor for cancellation.</param>
     /// <returns><c>true</c> if initialization was successful.</returns>
     /// <exception cref="InitializeTimeoutExceededException">
-    /// If initialization took more time than <see cref="DefaultInitializeTimeout"/>.
+    /// If initialization took more time than the limit.
     /// </exception>
-    private async ValueTask<bool> InitializeComObjectAsync(CancellationToken cancellationToken)
+    /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
+    private async ValueTask<bool> InitializeAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -271,8 +307,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     private object? GetPropertyValue(object target, string propertyName, bool isInitializing = false) =>
         CheckStateAndHandleError(() => _memberInvoker.GetPropertyValueByName(target, propertyName), isInitializing);
 
-    /// <remarks>Increments <see cref="ErrorsCount"/> on error.</remarks>
-    /// <param name="isInitializing"><c>true</c> if called within <see cref="InitializeComObjectAsync(CancellationToken)"/>.</param>
+    /// <remarks>If <paramref name="isInitializing"/> is <c>false</c> increments <see cref="ErrorsCount"/> on errors
+    /// (excluding <see cref="ErrorsCountExceededException"/> and <see cref="InvalidOperationException"/>).</remarks>
+    /// <param name="isInitializing"><c>true</c> if called within <see cref="InitializeAsync(CancellationToken)"/>.</param>
+    /// <inheritdoc cref="CheckState(bool)"/>
     private object? CheckStateAndHandleError(Func<object?> getValue, bool isInitializing)
     {
         try
@@ -281,11 +319,11 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             return getValue();
         }
-        catch (InvalidOperationException)
+        catch (ErrorsCountExceededException)
         {
             throw;
         }
-        catch (ErrorsCountExceededException)
+        catch (InvalidOperationException)
         {
             throw;
         }

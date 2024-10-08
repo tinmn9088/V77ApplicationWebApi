@@ -52,6 +52,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConnectionProperties.cs" />
+    <Compile Include="Exceptions\ErrorsCountExceededException.cs" />
+    <Compile Include="Exceptions\ErtReturnedErrorMessageException.cs" />
     <Compile Include="Exceptions\FailedToConnectException.cs" />
     <Compile Include="Exceptions\FailedToRunErtException.cs" />
     <Compile Include="IV77ApplicationConnection.cs" />

@@ -2,7 +2,7 @@
 
 namespace V77ApplicationWebApi.Core.Exceptions;
 
-public class FailedToRunErtException(string infobasePath, string message)
-    : Exception($"Failed to run ERT at infobase '{infobasePath}': {message}")
+public class FailedToRunErtException(string infobasePath, Exception innerException)
+    : Exception($"Failed to run ERT at infobase '{infobasePath}'", innerException)
 {
 }

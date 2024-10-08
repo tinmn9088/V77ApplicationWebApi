@@ -16,6 +16,8 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     /// <param name="cancellationToken">The token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     /// <exception cref="FailedToConnectException">If failed to connect to infobase.</exception>
+    /// <exception cref="ErrorsCountExceededException">If too many errors has with connection.</exception>
+    /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
     ValueTask ConnectAsync(CancellationToken cancellationToken);
 
     /// <summary>
@@ -24,6 +26,9 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     /// <param name="ertRelativePath">ERT path relative to infobase path.</param>
     /// <param name="cancellationToken">The token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+    /// <exception cref="FailedToRunErtException">If an error has occurred while running ERT.</exception>
+    /// <exception cref="ErrorsCountExceededException">If too many errors has with connection.</exception>
+    /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
     ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken);
 
     /// <summary>
@@ -42,9 +47,8 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string>? ertContext, string? resultName, CancellationToken cancellationToken);
 
     /// <param name="errorMessageName">Name by which the error message of ERT run can be retrieved.</param>
-    /// <exception cref="FailedToRunErtException">
-    /// If an error has occurred while running ERT (value retrieved
-    /// by <paramref name="errorMessageName"/> was not <c>null</c>).
+    /// <exception cref="ErtReturnedErrorMessageException">
+    /// Value retrieved by <paramref name="errorMessageName"/> after run was not <c>null</c>.
     /// </exception>
     /// <inheritdoc cref="RunErtAsync(string, IReadOnlyDictionary{string, string}?, string?, CancellationToken)"/>
     ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string>? ertContext, string? resultName, string? errorMessageName, CancellationToken cancellationToken);

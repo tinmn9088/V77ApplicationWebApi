@@ -15,6 +15,8 @@ namespace V77ApplicationWebApi.Infrastructure.UnitTests;
 
 public class ComV77ApplicationConnectionTests
 {
+    private const string DefaultErtRelativePath = @"ExtForms\Test\Run.ert";
+
     private readonly Mock<IInstanceFactory> _instanceFactoryMock;
 
     private readonly Mock<IMemberInvoker> _memberInvokerMock;
@@ -38,11 +40,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_ShouldCreateAndInitializeComObject()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -94,11 +92,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenCannotCreateType_ThrowsExceptionAndIncrementsErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
 
         // Setup
         _ = _instanceFactoryMock
@@ -135,11 +129,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
 
         // Setup
         _ = _instanceFactoryMock
@@ -153,7 +143,7 @@ public class ComV77ApplicationConnectionTests
             _ = await Assert.ThrowsAnyAsync<Exception>(connectTask.AsTask);
         }
 
-        _ = await Assert.ThrowsAsync<FailedToConnectException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.ConnectAsync(CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
@@ -163,15 +153,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenErrorOnInvokeMember_ShouldNotIncrementsErrorsCount()
     {
         // Arrange
-        ConnectionProperties properties = new(
-            infobasePath: DefaultConnectionProperties.InfobasePath,
-            username: DefaultConnectionProperties.Username,
-            password: DefaultConnectionProperties.Password);
-        ComV77ApplicationConnection connection = new(
-            properties: properties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
 
@@ -258,11 +240,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -324,11 +302,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenContextProvided_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -410,11 +384,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenResultNameProvided_ShouldRunErtAndReturnResult()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -494,11 +464,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenResultNameProvidedAndResultNull_ShouldRunErtAndReturnNull()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -577,11 +543,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenErrorMessageNameProvidedAndValueNullAfterRun_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -657,11 +619,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenErrorMessageNameProvidedAndValueNotNullAfterRun_ThrowsFailedToRunErtException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
         int fakeRMTrade = 42;
@@ -738,113 +696,95 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsyncsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = true;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
+        SetupInstanceFactory(fakeComObject);
+        SetupMemberInvoker(rmtrade: 42, initializeResult: true);
         _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "CreateObject"),
-                It.Is<object[]>(a => a.Length == 1 && (a[0] as string) == "ValueList")))
+            .SetupInvokePublicMethodByName(
+                methodName: "CreateObject",
+                detectArgs: a => a.Length == 1 && (a[0] as string) == "ValueList")
             .Throws<Exception>();
-        await connection.ConnectAsync(CancellationToken.None);
 
         // Act
+        await connection.ConnectAsync(CancellationToken.None);
+
         for (int i = 0; i < ComV77ApplicationConnection.MaxErrorsCount; i++)
         {
-            ValueTask runErtTask = connection.RunErtAsync(testErtRelativePath, CancellationToken.None);
+            ValueTask runErtTask = connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
             _ = await Assert.ThrowsAnyAsync<Exception>(runErtTask.AsTask);
         }
 
-        _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.RunErtAsync(testErtRelativePath, CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(ComV77ApplicationConnection.MaxErrorsCount, connection.ErrorsCount);
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenComObjectNotCreated_ThrowsInvalidOperationExceptionAndNotIncrementErrorsCount()
+    public async Task RunErtAsyncsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
 
-        // Act
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => connection.RunErtAsync(testErtRelativePath, CancellationToken.None).AsTask());
+        // Act (without ConnectAsync)
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(0, connection.ErrorsCount);
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenNotInitialized_ThrowsErrorsCountExceededException()
+    public async Task RunErtAsyncsync_WhenNotInitialized_ThrowsFailedToRunErtException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = new(
-            properties: DefaultConnectionProperties,
-            instanceFactory: _instanceFactoryMock.Object,
-            memberInvoker: _memberInvokerMock.Object,
-            logger: _loggerMock.Object);
+        ComV77ApplicationConnection connection = CreateDefaultConnection();
         object fakeComObject = new();
-        Type fakeComObjectType = fakeComObject.GetType();
-        int fakeRMTrade = 42;
-        bool fakeInitializationResult = false;
-        string testErtRelativePath = @"ExtForms\Test\Run.ert";
 
         // Setup
-        _ = _instanceFactoryMock
-            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
-            .Returns(fakeComObjectType);
-        _ = _instanceFactoryMock
-            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
-            .Returns(fakeComObject);
-        _ = _memberInvokerMock
-            .Setup(i => i.GetPropertyValueByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "RMTrade")))
-            .Returns(fakeRMTrade);
-        _ = _memberInvokerMock
-            .Setup(i => i.InvokePublicMethodByName(
-                It.IsAny<It.IsAnyType>(),
-                It.Is<string>(n => n == "Initialize"),
-                It.IsAny<object[]?>()))
-            .Returns(fakeInitializationResult);
-        await connection.ConnectAsync(CancellationToken.None);
+        SetupInstanceFactory(fakeComObject);
+        SetupMemberInvoker(rmtrade: 42, initializeResult: false);
 
         // Act
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => connection.RunErtAsync(testErtRelativePath, CancellationToken.None).AsTask());
+        await connection.ConnectAsync(CancellationToken.None);
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(0, connection.ErrorsCount);
+    }
+
+    private ComV77ApplicationConnection CreateDefaultConnection() => new(
+        properties: DefaultConnectionProperties,
+        instanceFactory: _instanceFactoryMock.Object,
+        memberInvoker: _memberInvokerMock.Object,
+        logger: _loggerMock.Object);
+
+    /// <summary>
+    /// Setup <see cref="IInstanceFactory.GetTypeFromProgID(string)"/> and <see cref="IInstanceFactory.CreateInstance(Type)"/> methods.
+    /// </summary>
+    /// <param name="comObject">Instance to return from <see cref="IInstanceFactory.CreateInstance(Type)"/>.</param>
+    private void SetupInstanceFactory(object comObject)
+    {
+        _ = _instanceFactoryMock
+            .Setup(f => f.GetTypeFromProgID(It.IsAny<string>()))
+            .Returns(comObject.GetType());
+        _ = _instanceFactoryMock
+            .Setup(f => f.CreateInstance(It.IsAny<Type>()))
+            .Returns(comObject);
+    }
+
+    /// <summary>
+    /// Setup "RMTrade" and "Initialize" methods.
+    /// </summary>
+    private void SetupMemberInvoker(int rmtrade, bool initializeResult)
+    {
+        _ = _memberInvokerMock
+            .SetupGetPropertyValueByName(propertyName: "RMTrade")
+            .Returns(rmtrade);
+        _ = _memberInvokerMock
+            .SetupInvokePublicMethodByName(methodName: "Initialize", detectArgs: _ => true)
+            .Returns(initializeResult);
     }
 }
