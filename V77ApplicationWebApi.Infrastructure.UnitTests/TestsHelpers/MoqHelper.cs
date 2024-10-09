@@ -2,7 +2,7 @@
 using Moq;
 using Moq.Language.Flow;
 
-namespace V77ApplicationWebApi.Infrastructure.UnitTests.Helpers;
+namespace V77ApplicationWebApi.Infrastructure.UnitTests.TestsHelpers;
 
 internal static class MoqHelper
 {

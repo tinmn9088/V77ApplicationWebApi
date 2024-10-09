@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Moq;
 using V77ApplicationWebApi.Infrastructure.Exceptions;
-using V77ApplicationWebApi.Infrastructure.UnitTests.Helpers;
+using V77ApplicationWebApi.Infrastructure.UnitTests.TestsHelpers;
 using Xunit;
 using Xunit.Abstractions;
 

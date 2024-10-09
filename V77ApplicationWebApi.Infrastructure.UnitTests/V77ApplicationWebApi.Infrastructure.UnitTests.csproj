@@ -99,11 +99,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Helpers\MoqHelper.cs" />
+    <Compile Include="Helpers\MessageHelperTests.cs" />
+    <Compile Include="TestsHelpers\MoqHelper.cs" />
     <Compile Include="InstanceFactoryTests.cs" />
     <Compile Include="MemberInvokerTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Helpers\TestsHelper.cs" />
+    <Compile Include="TestsHelpers\TestsHelper.cs" />
     <Compile Include="ComV77ApplicationConnectionTests.cs" />
   </ItemGroup>
   <ItemGroup>
