@@ -4,11 +4,11 @@ namespace V77ApplicationWebApi.Core;
 
 public record ConnectionProperties
 {
-    public ConnectionProperties(string infobasePath, string username, string password, TimeSpan? initializeTimeout = null)
+    public ConnectionProperties(string infobasePath, string username, string? password, TimeSpan? initializeTimeout = null)
     {
         InfobasePath = infobasePath ?? throw new ArgumentNullException(nameof(infobasePath));
         Username = username ?? throw new ArgumentNullException(nameof(username));
-        Password = password ?? throw new ArgumentNullException(nameof(password));
+        Password = password;
         InitializeTimeout = initializeTimeout;
     }
 
@@ -16,7 +16,7 @@ public record ConnectionProperties
 
     public string Username { get; }
 
-    public string Password { get; }
+    public string? Password { get; }
 
     public TimeSpan? InitializeTimeout { get; }
 }
