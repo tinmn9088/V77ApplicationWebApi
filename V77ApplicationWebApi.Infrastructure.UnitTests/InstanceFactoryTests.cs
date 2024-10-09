@@ -13,10 +13,13 @@ public class InstanceFactoryTests
     [Fact]
     public void GetTypeFromProgID_ShouldReturnType()
     {
+        // Arrange
         Type expected = typeof(object);
 
+        // Act
         Type actual = _instanceFactory.GetTypeFromProgID("System.Object");
 
+        // Assert
         Assert.Equal(expected, actual);
     }
 
@@ -27,10 +30,13 @@ public class InstanceFactoryTests
     [Fact]
     public void CreateInstance_ShouldCreateInstance()
     {
+        // Arrange
         Type expectedType = typeof(object);
 
+        // Act
         object instance = _instanceFactory.CreateInstance(expectedType);
 
+        // Assert
         Assert.IsType(expectedType, instance);
     }
 
