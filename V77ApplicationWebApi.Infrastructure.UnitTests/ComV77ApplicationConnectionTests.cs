@@ -490,7 +490,7 @@ public class ComV77ApplicationConnectionTests
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
+    public async Task RunErtAsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
@@ -519,7 +519,7 @@ public class ComV77ApplicationConnectionTests
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
+    public async Task RunErtAsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
@@ -532,7 +532,7 @@ public class ComV77ApplicationConnectionTests
     }
 
     [Fact]
-    public async Task RunErtAsyncsync_WhenIsNotInitialized_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
+    public async Task RunErtAsync_WhenIsNotInitialized_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
     {
         // Arrange
         ComV77ApplicationConnection connection = CreateDefaultConnection();
