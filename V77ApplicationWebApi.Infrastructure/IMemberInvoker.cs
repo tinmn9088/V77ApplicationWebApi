@@ -2,7 +2,7 @@
 
 namespace V77ApplicationWebApi.Infrastructure;
 
-internal interface IMemberInvoker
+public interface IMemberInvoker
 {
     /// <summary>
     /// Invokes a public method of the <paramref name="target"/> by <paramref name="methodName"/>.

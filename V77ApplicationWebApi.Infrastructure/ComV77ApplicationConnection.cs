@@ -26,6 +26,10 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
 
     private readonly SemaphoreSlim _disposeLock;
 
+    private readonly Func<ConnectionProperties, ValueTask>? _beforeDisposeCallback;
+
+    private readonly Action? _afterDisposeCallback;
+
     private Type? _comObjectType;
 
     private object? _comObject;
@@ -36,7 +40,9 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
         ConnectionProperties properties,
         IInstanceFactory instanceFactory,
         IMemberInvoker memberInvoker,
-        ILogger<ComV77ApplicationConnection> logger)
+        ILogger<ComV77ApplicationConnection> logger,
+        Func<ConnectionProperties, ValueTask>? beforeDisposeCallback = null,
+        Action? afterDisposeCallback = null)
     {
         Properties = properties;
 
@@ -49,6 +55,8 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
 
         _disposeTokenSource = new();
         _disposeLock = new(1, 1);
+        _beforeDisposeCallback = beforeDisposeCallback;
+        _afterDisposeCallback = afterDisposeCallback;
 
         ComObjectErrorsCount = 0;
     }
@@ -118,20 +126,56 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
         // Allow only one thread to enter
         if (await _disposeLock.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
         {
-            // Wait until dispose timer elapses
-            await WaitDisposeTimerAsync();
+            _ = Task.Run(async () =>
+            {
+                // Wait until dispose timer elapses
+                await WaitDisposeTimerAsync();
 
-            // Actual dispose
-            await _connectionLock.WaitAsync().ConfigureAwait(false);
+                // Before dispose
+                if (_beforeDisposeCallback is not null)
+                {
+                    try
+                    {
+                        await _beforeDisposeCallback(Properties).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogErrorOnBeforeDisposeConnection(ex, infobasePath: Properties.InfobasePath);
+                    }
+                }
 
-            _logger.LogConnectionDisposing(infobasePath: Properties.InfobasePath, disposeTimeout);
+                try
+                {
+                    // Dispose
+                    await _connectionLock.WaitAsync().ConfigureAwait(false);
 
-            ReleaseComObject();
-            _disposeTokenSource.Dispose();
-            _disposeLock.Dispose();
-            _connectionLock.Dispose();
+                    _logger.LogConnectionDisposing(infobasePath: Properties.InfobasePath, disposeTimeout);
 
-            _logger.LogConnectionDisposed(infobasePath: Properties.InfobasePath);
+                    ReleaseComObject();
+
+                    _disposeTokenSource.Dispose();
+                    _disposeLock.Dispose();
+
+                    _connectionLock.Dispose();
+
+                    _logger.LogConnectionDisposed(infobasePath: Properties.InfobasePath);
+                }
+                finally
+                {
+                    // After dispose
+                    if (_afterDisposeCallback is not null)
+                    {
+                        try
+                        {
+                            _afterDisposeCallback();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogErrorOnAfterDisposeConnection(ex, infobasePath: Properties.InfobasePath);
+                        }
+                    }
+                }
+            });
         }
     }
 

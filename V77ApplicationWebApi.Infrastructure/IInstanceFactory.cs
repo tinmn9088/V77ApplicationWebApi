@@ -3,7 +3,7 @@ using V77ApplicationWebApi.Infrastructure.Exceptions;
 
 namespace V77ApplicationWebApi.Infrastructure;
 
-internal interface IInstanceFactory
+public interface IInstanceFactory
 {
     /// <summary>
     /// Gets the type associated with the specified program identifier (ProgID).

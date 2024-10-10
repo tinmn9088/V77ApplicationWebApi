@@ -16,7 +16,7 @@ namespace V77ApplicationWebApi.Infrastructure.UnitTests;
 
 public class ComV77ApplicationConnectionTests
 {
-    private const string DefaultErtRelativePath = @"ExtForms\Test\Run.ert";
+    private const string TestErtRelativePath = @"ExtForms\Test\Run.ert";
 
     private readonly Mock<IInstanceFactory> _instanceFactoryMock;
 
@@ -32,7 +32,7 @@ public class ComV77ApplicationConnectionTests
         _loggerMock.RedirectToStandartOutput(output);
     }
 
-    private static ConnectionProperties DefaultConnectionProperties => new(
+    private static ConnectionProperties TestConnectionProperties => new(
         infobasePath: @"D:\TestInfobase",
         username: "TestUser",
         password: "TestPassword");
@@ -41,7 +41,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_ShouldCreateAndInitializeComObject()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
 
@@ -65,7 +65,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenCalledMultipleTimes_ShouldCreateAndInitializeComObjectOnce()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
 
@@ -92,7 +92,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenOperationIsCancelled_ThrowsOperationCanceledExceptionAndNotIncrementsComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         Type fakeComObjectType = typeof(object);
         using CancellationTokenSource tokenSource = new();
 
@@ -116,7 +116,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenCannotCreateType_ThrowsFailedToConnectExceptionAndIncrementsComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
 
         // Setup
         _ = _instanceFactoryMock
@@ -139,7 +139,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
 
         // Setup
         _ = _instanceFactoryMock
@@ -165,7 +165,7 @@ public class ComV77ApplicationConnectionTests
     public async Task ConnectAsync_WhenFailsToInvokeMember_ThrowsFailedToConnectExceptionAndIncrementsComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         Type fakeComObjectType = fakeComObject.GetType();
 
@@ -196,9 +196,9 @@ public class ComV77ApplicationConnectionTests
     {
         // Arrange
         ConnectionProperties propertiesWithZeroTimeout = new(
-            infobasePath: DefaultConnectionProperties.InfobasePath,
-            username: DefaultConnectionProperties.Username,
-            password: DefaultConnectionProperties.Password,
+            infobasePath: TestConnectionProperties.InfobasePath,
+            username: TestConnectionProperties.Username,
+            password: TestConnectionProperties.Password,
             initializeTimeout: TimeSpan.Zero);
         ComV77ApplicationConnection connection = new(
             properties: propertiesWithZeroTimeout,
@@ -229,7 +229,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
 
         // Setup
@@ -238,7 +238,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        await connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
+        await connection.RunErtAsync(TestErtRelativePath, CancellationToken.None);
 
         // Verify
         _memberInvokerMock.VerifyInvokePublicMethodByName(
@@ -253,7 +253,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
     }
 
@@ -261,7 +261,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenErtContextPassed_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         Dictionary<string, string> ertContext = new()
         {
@@ -275,7 +275,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        await connection.RunErtAsync(DefaultErtRelativePath, ertContext, CancellationToken.None);
+        await connection.RunErtAsync(TestErtRelativePath, ertContext, CancellationToken.None);
 
         // Verify
         _memberInvokerMock.VerifyInvokePublicMethodByName(
@@ -303,7 +303,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
     }
 
@@ -311,7 +311,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenResultNamePassed_ShouldRunErtAndReturnResult()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         string resultName = "TestErtResultName";
         string expectedResult = "TestErtResult";
@@ -322,7 +322,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        string actualResult = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName, CancellationToken.None);
+        string actualResult = await connection.RunErtAsync(TestErtRelativePath, ertContext: null, resultName, CancellationToken.None);
 
         // Assert
         Assert.Equal(expectedResult, actualResult);
@@ -340,7 +340,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
         _memberInvokerMock.VerifyInvokePublicMethodByName(
             target: fakeContextValueList,
@@ -353,7 +353,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenResultNamePassedAndResultIsNull_ShouldRunErtAndReturnNull()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         string resultName = "TestErtNullResultName";
 
@@ -363,7 +363,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        string result = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName, CancellationToken.None);
+        string result = await connection.RunErtAsync(TestErtRelativePath, ertContext: null, resultName, CancellationToken.None);
 
         // Assert
         Assert.Null(result);
@@ -381,7 +381,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
         _memberInvokerMock.VerifyInvokePublicMethodByName(
             target: fakeContextValueList,
@@ -394,7 +394,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenErrorMessageNamePassedAndErrorMessageIsNullAfterRun_ShouldRunErt()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         string errorMessageName = "TestErtErrorMessageName";
 
@@ -404,7 +404,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        _ = await connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None);
+        _ = await connection.RunErtAsync(TestErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None);
 
         // Verify
         _memberInvokerMock.VerifyInvokePublicMethodByName(
@@ -419,7 +419,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
         _memberInvokerMock.VerifyInvokePublicMethodByName(
             target: fakeContextValueList,
@@ -432,7 +432,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenErrorMessageNameProvidedAndErrorMessageIsNotNullAfterRun_ThrowsFailedToRunErtException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         string errorMessageName = "TestErtErrorMessageName";
         string errorMessage = "Error code - 1";
@@ -443,7 +443,7 @@ public class ComV77ApplicationConnectionTests
 
         // Act
         await connection.ConnectAsync(CancellationToken.None);
-        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(TestErtRelativePath, ertContext: null, resultName: null, errorMessageName, CancellationToken.None).AsTask());
 
         // Verify
         _memberInvokerMock.VerifyInvokePublicMethodByName(
@@ -458,7 +458,7 @@ public class ComV77ApplicationConnectionTests
                 a.Length == 3
                 && (a[0] as string) == "Report"
                 && ReferenceEquals(a[1], fakeContextValueList)
-                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, DefaultErtRelativePath),
+                && (a[2] as string) == Path.Combine(connection.Properties.InfobasePath, TestErtRelativePath),
             times: Times.Once);
         _memberInvokerMock.VerifyInvokePublicMethodByName(
             target: fakeContextValueList,
@@ -471,7 +471,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenOperationIsCancelled_ThrowsOperationCanceledExceptionAndNotIncrementsComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
         object fakeContextValueList = new();
         using CancellationTokenSource tokenSource = new();
@@ -486,14 +486,14 @@ public class ComV77ApplicationConnectionTests
 
         // Act, Assert
         await connection.ConnectAsync(CancellationToken.None);
-        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => connection.RunErtAsync(DefaultErtRelativePath, tokenSource.Token).AsTask());
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => connection.RunErtAsync(TestErtRelativePath, tokenSource.Token).AsTask());
     }
 
     [Fact]
     public async Task RunErtAsync_WhenTooManyErrors_ThrowsErrorsCountExceededException()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
 
         // Setup
@@ -508,11 +508,11 @@ public class ComV77ApplicationConnectionTests
 
         for (int i = 0; i < ComV77ApplicationConnection.MaxComObjectErrorsCount; i++)
         {
-            ValueTask runErtTask = connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
+            ValueTask runErtTask = connection.RunErtAsync(TestErtRelativePath, CancellationToken.None);
             _ = await Assert.ThrowsAnyAsync<Exception>(runErtTask.AsTask);
         }
 
-        _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<ErrorsCountExceededException>(() => connection.RunErtAsync(TestErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(ComV77ApplicationConnection.MaxComObjectErrorsCount, connection.ComObjectErrorsCount);
@@ -522,10 +522,10 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenComObjectNotCreated_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
 
         // Act (missing ConnectAsync)
-        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None).AsTask());
+        _ = await Assert.ThrowsAsync<FailedToRunErtException>(() => connection.RunErtAsync(TestErtRelativePath, CancellationToken.None).AsTask());
 
         // Assert
         Assert.Equal(0, connection.ComObjectErrorsCount);
@@ -535,7 +535,7 @@ public class ComV77ApplicationConnectionTests
     public async Task RunErtAsync_WhenIsNotInitialized_ThrowsFailedToRunErtExceptionAndNotIncrementComObjectErrorsCount()
     {
         // Arrange
-        ComV77ApplicationConnection connection = CreateDefaultConnection();
+        ComV77ApplicationConnection connection = CreateTestConnection();
         object fakeComObject = new();
 
         // Setup
@@ -550,15 +550,15 @@ public class ComV77ApplicationConnectionTests
         // Act
         ValueTask connectTask = connection.ConnectAsync(CancellationToken.None);
         _ = await Assert.ThrowsAsync<FailedToConnectException>(connectTask.AsTask);
-        ValueTask runErtTask = connection.RunErtAsync(DefaultErtRelativePath, CancellationToken.None);
+        ValueTask runErtTask = connection.RunErtAsync(TestErtRelativePath, CancellationToken.None);
         _ = await Assert.ThrowsAsync<FailedToRunErtException>(runErtTask.AsTask);
 
         // Assert
         Assert.Equal(1, connection.ComObjectErrorsCount);
     }
 
-    private ComV77ApplicationConnection CreateDefaultConnection() => new(
-        properties: DefaultConnectionProperties,
+    private ComV77ApplicationConnection CreateTestConnection() => new(
+        properties: TestConnectionProperties,
         instanceFactory: _instanceFactoryMock.Object,
         memberInvoker: _memberInvokerMock.Object,
         logger: _loggerMock.Object);
