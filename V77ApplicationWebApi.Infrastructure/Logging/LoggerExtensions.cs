@@ -21,8 +21,8 @@ internal static class LoggerExtensions
     public static void LogInvokingMember(this ILogger logger, object target, string memberName, object[]? args) =>
         logger.LogTrace("Invoke '{MemberName}' on {Target} with args: {ArgsString}", memberName, target, BuildArgsString(args));
 
-    public static void LogConnectionDisposing(this ILogger logger, string infobasePath, TimeSpan disposeTimeout) =>
-        logger.LogTrace("Connection to infobase '{InfobasePath}' was inactive for {DisposeTimeout}. Disposing ...", infobasePath, disposeTimeout);
+    public static void LogDisposingConnection(this ILogger logger, string infobasePath, TimeSpan disposeTimeout) =>
+        logger.LogInformation("Connection to infobase '{InfobasePath}' was inactive for {DisposeTimeout}. Disposing ...", infobasePath, disposeTimeout);
 
     public static void LogErrorOnBeforeDisposeConnection(this ILogger logger, Exception ex, string infobasePath) =>
         logger.LogError(ex, "Error in before dispose callback for connection to infobase '{InfobasePath}'", infobasePath);
@@ -31,5 +31,5 @@ internal static class LoggerExtensions
         logger.LogError(ex, "Error in after dispose callback for connection to infobase '{InfobasePath}'", infobasePath);
 
     public static void LogConnectionDisposed(this ILogger logger, string infobasePath) =>
-        logger.LogTrace("Connection to infobase '{InfobasePath}' disposed", infobasePath);
+        logger.LogInformation("Connection to infobase '{InfobasePath}' disposed", infobasePath);
 }

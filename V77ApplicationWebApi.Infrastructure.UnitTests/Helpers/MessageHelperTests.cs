@@ -1,7 +1,6 @@
-﻿using V77ApplicationWebApi.Infrastructure.Helpers;
-using Xunit;
+﻿using Xunit;
 
-namespace V77ApplicationWebApi.Infrastructure.UnitTests.Helpers;
+namespace V77ApplicationWebApi.Infrastructure.Helpers.UnitTests;
 
 public class MessageHelperTests
 {

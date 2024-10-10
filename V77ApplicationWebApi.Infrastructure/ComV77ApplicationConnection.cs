@@ -45,6 +45,7 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
         Action? afterDisposeCallback = null)
     {
         Properties = properties;
+        ComObjectErrorsCount = 0;
 
         _memberInvoker = memberInvoker;
         _instanceFactory = instanceFactory;
@@ -57,13 +58,11 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
         _disposeLock = new(1, 1);
         _beforeDisposeCallback = beforeDisposeCallback;
         _afterDisposeCallback = afterDisposeCallback;
-
-        ComObjectErrorsCount = 0;
     }
 
     public static TimeSpan DefaultInitializeTimeout => TimeSpan.FromSeconds(30);
 
-    public static TimeSpan DefaultDisposeTimeout => TimeSpan.FromSeconds(5);
+    public static TimeSpan DefaultDisposeTimeout => TimeSpan.FromSeconds(15);
 
     public static string ComObjectTypeName => "V77.Application";
 
@@ -123,12 +122,11 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
     {
         StartDisposeTimer(out TimeSpan disposeTimeout);
 
-        // Allow only one thread to enter
+        // Allow to enter only once
         if (await _disposeLock.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
         {
             _ = Task.Run(async () =>
             {
-                // Wait until dispose timer elapses
                 await WaitDisposeTimerAsync();
 
                 // Before dispose
@@ -149,13 +147,11 @@ public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
                     // Dispose
                     await _connectionLock.WaitAsync().ConfigureAwait(false);
 
-                    _logger.LogConnectionDisposing(infobasePath: Properties.InfobasePath, disposeTimeout);
+                    _logger.LogDisposingConnection(infobasePath: Properties.InfobasePath, disposeTimeout);
 
                     ReleaseComObject();
-
                     _disposeTokenSource.Dispose();
                     _disposeLock.Dispose();
-
                     _connectionLock.Dispose();
 
                     _logger.LogConnectionDisposed(infobasePath: Properties.InfobasePath);
