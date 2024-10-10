@@ -18,6 +18,7 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     /// <exception cref="FailedToConnectException">If failed to connect to infobase.</exception>
     /// <exception cref="ErrorsCountExceededException">If too many errors has with connection.</exception>
     /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
+    /// <exception cref="ObjectDisposedException">Connection is already disposed.</exception>
     ValueTask ConnectAsync(CancellationToken cancellationToken);
 
     /// <summary>
@@ -29,6 +30,7 @@ public interface IV77ApplicationConnection : IAsyncDisposable
     /// <exception cref="FailedToRunErtException">If an error has occurred while running ERT.</exception>
     /// <exception cref="ErrorsCountExceededException">If too many errors has with connection.</exception>
     /// <exception cref="OperationCanceledException">If <paramref name="cancellationToken"/> was cancelled.</exception>
+    /// <exception cref="ObjectDisposedException">Connection is already disposed.</exception>
     ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken);
 
     /// <summary>

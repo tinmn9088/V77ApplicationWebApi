@@ -3,7 +3,7 @@ using V77ApplicationWebApi.Infrastructure.Exceptions;
 
 namespace V77ApplicationWebApi.Infrastructure;
 
-internal class InstanceFactory : IInstanceFactory
+internal sealed class InstanceFactory : IInstanceFactory
 {
     public Type GetTypeFromProgID(string progID)
     {

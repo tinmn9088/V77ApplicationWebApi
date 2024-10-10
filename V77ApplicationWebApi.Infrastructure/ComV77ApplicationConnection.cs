@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,7 @@ using static V77ApplicationWebApi.Infrastructure.Logging.LoggerExtensions;
 
 namespace V77ApplicationWebApi.Infrastructure;
 
-public class ComV77ApplicationConnection : IV77ApplicationConnection
+public sealed class ComV77ApplicationConnection : IV77ApplicationConnection
 {
     private readonly IInstanceFactory _instanceFactory;
 
@@ -20,6 +21,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
     private readonly ILogger<ComV77ApplicationConnection> _logger;
 
     private readonly SemaphoreSlim _connectionLock;
+
+    private readonly CancellationTokenSource _disposeTokenSource;
+
+    private readonly SemaphoreSlim _disposeLock;
 
     private Type? _comObjectType;
 
@@ -39,12 +44,18 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
         _instanceFactory = instanceFactory;
         _logger = logger;
 
-        _connectionLock = new(1);
+        _connectionLock = new(1, 1);
         _isInitialized = false;
+
+        _disposeTokenSource = new();
+        _disposeLock = new(1, 1);
+
         ComObjectErrorsCount = 0;
     }
 
     public static TimeSpan DefaultInitializeTimeout => TimeSpan.FromSeconds(30);
+
+    public static TimeSpan DefaultDisposeTimeout => TimeSpan.FromSeconds(5);
 
     public static string ComObjectTypeName => "V77.Application";
 
@@ -56,7 +67,9 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
     public async ValueTask ConnectAsync(CancellationToken cancellationToken)
     {
-        _logger.LogTryingConnect(Properties.InfobasePath);
+        _logger.LogTryingConnect(infobasePath: Properties.InfobasePath);
+
+        StopDisposeTimer();
 
         await _connectionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -71,12 +84,12 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             if (!_isInitialized)
             {
-                _logger.LogInitializingConnection(Properties.InfobasePath);
+                _logger.LogInitializingConnection(infobasePath: Properties.InfobasePath);
                 _isInitialized = await InitializeAsync(cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                _logger.LogAlreadyConnected(Properties.InfobasePath);
+                _logger.LogAlreadyConnected(infobasePath: Properties.InfobasePath);
             }
         }
         catch (OperationCanceledException)
@@ -98,7 +111,29 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
         }
     }
 
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public async ValueTask DisposeAsync()
+    {
+        StartDisposeTimer(out TimeSpan disposeTimeout);
+
+        // Allow only one thread to enter
+        if (await _disposeLock.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
+        {
+            // Wait until dispose timer elapses
+            await WaitDisposeTimerAsync();
+
+            // Actual dispose
+            await _connectionLock.WaitAsync().ConfigureAwait(false);
+
+            _logger.LogConnectionDisposing(infobasePath: Properties.InfobasePath, disposeTimeout);
+
+            ReleaseComObject();
+            _disposeTokenSource.Dispose();
+            _disposeLock.Dispose();
+            _connectionLock.Dispose();
+
+            _logger.LogConnectionDisposed(infobasePath: Properties.InfobasePath);
+        }
+    }
 
     public async ValueTask RunErtAsync(string ertRelativePath, CancellationToken cancellationToken) =>
         await RunErtAsync(ertRelativePath, ertContext: default, cancellationToken);
@@ -111,6 +146,10 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
     public async ValueTask<string?> RunErtAsync(string ertRelativePath, IReadOnlyDictionary<string, string> ertContext, string resultName, string errorMessageName, CancellationToken cancellationToken)
     {
+        _logger.LogRunningErt(infobasePath: Properties.InfobasePath, ertRelativePath);
+
+        StopDisposeTimer();
+
         await _connectionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -348,5 +387,44 @@ public class ComV77ApplicationConnection : IV77ApplicationConnection
 
             throw;
         }
+    }
+
+    /// <summary>
+    /// Must to be called at the start of any operation except <see cref="DisposeAsync"/>.
+    /// </summary>
+    private void StopDisposeTimer() =>
+        _disposeTokenSource.CancelAfter(Timeout.InfiniteTimeSpan);
+
+    private void StartDisposeTimer(out TimeSpan disposeTimeout)
+    {
+        disposeTimeout = DefaultDisposeTimeout;
+        _disposeTokenSource.CancelAfter(DefaultDisposeTimeout);
+    }
+
+    private async ValueTask WaitDisposeTimerAsync()
+    {
+        try
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, _disposeTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (TaskCanceledException)
+        {
+            // Supress exception
+        }
+    }
+
+    private void ReleaseComObject()
+    {
+        if (_comObject is not null)
+        {
+            _ = Marshal.FinalReleaseComObject(_comObject);
+        }
+
+        _isInitialized = false;
+        _comObject = null;
+        _comObjectType = null;
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 }

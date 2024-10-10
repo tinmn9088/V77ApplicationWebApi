@@ -7,7 +7,7 @@ using static System.Reflection.BindingFlags;
 
 namespace V77ApplicationWebApi.Infrastructure;
 
-internal class MemberInvoker(ILogger<MemberInvoker> logger)
+internal sealed class MemberInvoker(ILogger<MemberInvoker> logger)
     : IMemberInvoker
 {
     private readonly ILogger<MemberInvoker> _logger = logger;
